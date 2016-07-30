@@ -4,49 +4,6 @@ const fn = (function() {
   return {
 
     /**
-     * Initialize an array of increasing values
-     *
-     * @param {Number} start (Optional) - Initial value. Default 0.
-     * @param {Number} end - End value, plus 1.
-     * @param {Function(Number)} map (Optional)
-     *          Mapping function returning values to populate the array
-     */
-    arange (...args) {
-      let start;
-      let end;
-      let fn;
-
-      // Process arguments
-      if (typeof(args[1]) === 'number') {
-        start = args.shift();
-        end = args.shift();
-      } else {
-        start = 0;
-        end = args.shift();
-      }
-
-      if (typeof(args[0]) === 'function') {
-        fn = args.shift();
-      }
-
-      // Value to return
-      const ret = new Array(end - start);
-
-      if (fn === undefined) {
-        for (let i = 0, val = start; val < end; i++, val++) {
-          ret[i] = val;
-        }
-      }
-      else {
-        for (let i = 0, val = start; val < end; i++, val++) {
-          ret[i] = fn(val, i);
-        }
-      }
-
-      return ret;
-    },
-
-    /**
      * Determines whether all elements of an iterable satisfy a condition
      * @param {Iterable|Arraylike} iterable
      * @param {Function} fn (Optional) - Test function. Defaults to boolean cast.
@@ -92,6 +49,121 @@ const fn = (function() {
         }
         return false;
       }
+    },
+
+    /**
+     * Initialize an array of increasing values
+     *
+     * @param {Number} start (Optional) - Initial value. Default 0.
+     * @param {Number} end - End value, plus 1.
+     * @param {Function(Number)} map (Optional)
+     *          Mapping function returning values to populate the array
+     */
+    arange (...args) {
+      let start;
+      let end;
+      let fn;
+
+      // Process arguments
+      if (typeof(args[1]) === 'number') {
+        start = args.shift();
+        end = args.shift();
+      } else {
+        start = 0;
+        end = args.shift();
+      }
+
+      if (typeof(args[0]) === 'function') {
+        fn = args.shift();
+      }
+
+      // Value to return
+      const ret = new Array(end - start);
+
+      if (fn === undefined) {
+        for (let i = 0, val = start; val < end; i++, val++) {
+          ret[i] = val;
+        }
+      }
+      else {
+        for (let i = 0, val = start; val < end; i++, val++) {
+          ret[i] = fn(val, i);
+        }
+      }
+
+      return ret;
+    },
+
+    /**
+     * Executes an asynchronous function -- given a generator that yields
+     * Promises, wait for each promise to resolve and feed the value back into
+     * the generator.
+     *
+     * @param {Generator} generator - Function to run
+     * @return {Promise} - A promise which resolves when the generator returns
+     *
+     * Example:
+     * asyncExec(function*() {
+     *   // Presumably, httplibrary::get returns a Promise.
+     *   try {
+     *     const value = yield httplibrary.get('http://www.google.com');
+     *     if (value.contains('hello')) {
+     *       return true;
+     *     } else {
+     *       return false;
+     *     }
+     *   } catch(e) {
+     *     return "Could not load."
+     *   }  
+     * });
+     */
+    asyncExec (generator) {
+      return new Promise((resolve, reject) => {
+        const iterator = generator();
+
+        function processIteration (iteration) {
+          // Generator has returned successfully
+          if (iteration.done) {
+            resolve(iteration.value);
+          }
+          // Generator has returned a promise
+          else if ('then' in next.value) {
+            next.value.then(
+              value => resumeGenerator,
+              error => throwGenerator
+            );
+          }
+          // Generator has mistakenly returned a non-promise value.
+          // Be forgiving and immediately resume execution
+          else {
+            resumeGenerator(iteration.value);
+          }
+        }
+
+        function resumeGenerator(value) {
+          try {
+            // Resume execution
+            processIteration(iterator.next(value));
+          } catch(e) {
+            // Catch errors that propagated out of the generator and
+            // pass them along to the promise.
+            reject(e);
+          }
+        }
+
+        function throwGenerator(value) {
+          try {
+            // Throw an exception within the generator where it last yielded
+            processIteration(iterator.throw(value));
+          } catch(e) {
+            reject(e);
+            // Catch errors that propagated out of the generator and
+            // pass them along to the promise.
+          }
+        }
+
+        resumeGenerator(undefined);
+      });
     },
 
     * concat (...iterables) {
@@ -345,7 +417,14 @@ const fn = (function() {
            iterations = iterators.map(itr => itr.next())) {
         yield iterations.map(iteration => iteration.value);
       }
-    }
+    },
+
+    /**
+     * Repackage setTimeout() as a Promise
+     */
+    timeout (milliseconds) {
+      return new Promise(resolve => setTimeout(resolve, milliseconds));
+    },
 
   };
 })();
