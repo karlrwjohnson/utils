@@ -127,11 +127,8 @@ const fn = (function() {
             resolve(iteration.value);
           }
           // Generator has returned a promise
-          else if ('then' in next.value) {
-            next.value.then(
-              value => resumeGenerator,
-              error => throwGenerator
-            );
+          else if ('then' in iteration.value) {
+            iteration.value.then(resumeGenerator, throwGenerator);
           }
           // Generator has mistakenly returned a non-promise value.
           // Be forgiving and immediately resume execution
@@ -151,10 +148,10 @@ const fn = (function() {
           }
         }
 
-        function throwGenerator(value) {
+        function throwGenerator(error) {
           try {
             // Throw an exception within the generator where it last yielded
-            processIteration(iterator.throw(value));
+            processIteration(iterator.throw(error));
           } catch(e) {
             reject(e);
             // Catch errors that propagated out of the generator and
@@ -359,6 +356,18 @@ const fn = (function() {
     },
 
     /**
+     * Log an error to the console. Useful for the tail-end of Promises,
+     * which tend to eat errors silently.
+     */
+    logError (error) {
+      if ('stack' in error) {
+        console.error(error.stack);
+      } else {
+        console.error(error);
+      }
+    },
+
+    /**
      * Sort a set of items from `iterable` into buckets based on a key returned
      * by mapping function `keyFn`
      *
@@ -406,6 +415,13 @@ const fn = (function() {
     },
 
     /**
+     * Repackage setTimeout() as a Promise
+     */
+    timeout (milliseconds) {
+      return new Promise(resolve => setTimeout(resolve, milliseconds));
+    },
+
+    /**
      * Combine multiple iterables, yielding an array for each value
      */
     * zip (...iterables) {
@@ -417,13 +433,6 @@ const fn = (function() {
            iterations = iterators.map(itr => itr.next())) {
         yield iterations.map(iteration => iteration.value);
       }
-    },
-
-    /**
-     * Repackage setTimeout() as a Promise
-     */
-    timeout (milliseconds) {
-      return new Promise(resolve => setTimeout(resolve, milliseconds));
     },
 
   };
