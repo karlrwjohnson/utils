@@ -249,9 +249,6 @@ const fn = (function() {
         }
         i++;
       }
-      else {
-        throw new TypeError(`Object ${iterable} is not iterable`);
-      }
     },
 
     forEach (iterable, fn) {
